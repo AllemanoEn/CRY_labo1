@@ -1,3 +1,5 @@
+# Author : Enzo Allemano
+
 import unidecode
 import numpy as np
 
