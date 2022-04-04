@@ -1,5 +1,3 @@
-import math
-
 import unidecode
 import numpy as np
 
@@ -86,6 +84,8 @@ def caesar_encrypt(text, key):
     # TODO
 
     text = format_text(text)
+    if not key.isdigit():
+        raise Exception("Caesar must be only digit")
 
     ciphertext = ""
 
@@ -146,6 +146,9 @@ def caesar_break(text):
     a number corresponding to the caesar key
     """
     # TODO
+
+    text = format_text(text)
+
     E = freq_analysis(content_gutenbergEBook)
 
     caesar_keys = [0] * 26
@@ -256,6 +259,7 @@ def coincidence_index(text):
     the index of coincidence of the text
     """
     # TODO
+
     count_vector = count_alpha_char_occurence(text)
 
     # Compute sum ni(ni-1)
@@ -263,6 +267,7 @@ def coincidence_index(text):
     for f in count_vector:
         ICsum += f * (f - 1)
 
+    # dtype=np.float64 prevent overflow result
     text_len = np.sum(count_vector, dtype=np.float64)
 
     IC = (26 * ICsum) / (text_len * (text_len - 1))
@@ -334,6 +339,18 @@ def vigenere_caesar_encrypt(text, vigenere_key, caesar_key):
     """
     # TODO
 
+    if not vigenere_key.isalpha() or not vigenere_key.isupper():
+        raise Exception("Vigenere key must be only uppercase alpha char without accent and spaces")
+
+    # Remove accent from key
+    vigenere_key = unidecode.unidecode(vigenere_key)
+
+    if not caesar_key.isdigit():
+        raise Exception("Caesar key must be only digit")
+
+    # Remove accent from key
+    vigenere_key = unidecode.unidecode(vigenere_key)
+
     text = format_text(text)
     splited_text = [text[i:i + len(vigenere_key)] for i in range(0, len(text), len(vigenere_key))]
 
@@ -365,6 +382,9 @@ def vigenere_caesar_decrypt(text, vigenere_key, caesar_key):
     # Remove accent from key
     vigenere_key = unidecode.unidecode(vigenere_key)
 
+    if not caesar_key.isdigit():
+        raise Exception("Caesar key must be only digit")
+
     splited_text = [text[i:i + len(vigenere_key)] for i in range(0, len(text), len(vigenere_key))]
 
     deciphertext = ""
@@ -390,38 +410,44 @@ def vigenere_caesar_break(text):
     """
     # TODO you can delete the next lines if needed
     formated_text = format_text(text)
-    best_ic = 0
 
     vigenere_key = ""
     caesar_key = ""
     vigenere_key_length = 0
+    best_ic = 0
 
+    # There is the big deal of the lab. To find the best range of the vigenere key size,
+    # we should do a top 10 key for each try of a specific range.
+    # The value 16 works for the given vigenereAmleliore.txt file
     for viegener_key_size in range(1, 16):
         text_vigenere_offset = ""
         pos = len(formated_text) // viegener_key_size
         for i in range(pos):
+            # As the vigenere tools, create specific text with a number of column equal to "viegener_key_size"
             text_vigenere_offset += formated_text[i * viegener_key_size]
 
         for current_caesar_key_size in range(26):
             text_caesar_offset = ""
-
+            # Shift the specific text with each caesar offset
             for k in range(len(text_vigenere_offset)):
                 text_caesar_offset += caesar_decrypt(text_vigenere_offset[k], current_caesar_key_size * k)
 
             current_coincidence_index = coincidence_index(text_caesar_offset)
 
-            if 2.06 > current_coincidence_index > best_ic:
+            # Stock only the best IC index, and so, the best caesar and vigenere corresponding key
+            if current_coincidence_index > best_ic:
                 best_ic = current_coincidence_index
                 caesar_key = current_caesar_key_size
                 vigenere_key_length = viegener_key_size
 
     for i in range(vigenere_key_length):
-        tmp = ""
+        tmp_caesar = ""
         for j in range(len(text)):
             pos = i + (j*vigenere_key_length)
             if pos < len(text):
-                tmp += caesar_decrypt(text[pos], j*caesar_key)
-        vigenere_key += chr(caesar_break(tmp)+65)
+                # Create a specific text with a viegenere key size offset
+                tmp_caesar += caesar_decrypt(text[pos], j*caesar_key)
+        vigenere_key += chr(caesar_break(tmp_caesar)+65)
 
     return vigenere_key, caesar_key
 
@@ -437,18 +463,23 @@ def main():
     # TODO something
     print("**********************************")
     print("Caesar :")
+
     text_caesar = "la crypto c'est trop de la balle"
     key_caesar = 10
+
     print("Encryption of \"" + text_caesar + "\" with the key : " + str(key_caesar))
     ciphertext_caesar = caesar_encrypt(text_caesar, key_caesar)
     print("Encrypted text : " + ciphertext_caesar)
     best_key = caesar_break(ciphertext_caesar)
     print("Caesar break find " + str(best_key) + " for the best key")
     print("Try to decipher the text with the best key : " + caesar_decrypt(ciphertext_caesar, best_key))
+
     print("**********************************")
     print("Vigenere :")
+
     text_vigenere = "la crypto c'est trop de la balle"
     key_vigenere = "CRYPTO"
+
     print("Encryption of \"" + text_vigenere + "\" with the key : \"" + key_vigenere + "\"")
     ciphertext_vigenere = vigenere_encrypt(text_vigenere, key_vigenere)
     print("Encrypted text : " + ciphertext_vigenere)
@@ -462,23 +493,30 @@ def main():
     # print("Original key found : \"" + original_key_vigenere + "\"")
     # deciphertext_vigenere_with_original_key = vigenere_decrypt(content_vigenere, original_key_vigenere)
     # print("Try to decipher the text with the original key found : " + deciphertext_vigenere_with_original_key)
+
     print("**********************************")
     print("Vigenere caesar :")
 
-    # text_vigenere_caesar = "la crypto c'est trop de la balle"
     text_vigenere_caesar = "la crypto c'est trop de la balle"
     key_v_vigenere_caesar = "CRYPTO"
     key_c_vigenere_caesar = 2
 
     print("Encryption of \"" + text_vigenere_caesar + "\" with the vigenere key : \"" + key_v_vigenere_caesar + "\"" + " and the caesar key : " + str(key_c_vigenere_caesar))
-    ciphertext_vigenere_caesar = vigenere_caesar_encrypt(text_vigenere_caesar, key_v_vigenere_caesar,key_c_vigenere_caesar)
+    ciphertext_vigenere_caesar = vigenere_caesar_encrypt(text_vigenere_caesar, key_v_vigenere_caesar, key_c_vigenere_caesar)
     print("Encrypted text : " + ciphertext_vigenere_caesar)
-    deciphertext_vigenere_caesar = vigenere_caesar_decrypt(ciphertext_vigenere_caesar, key_v_vigenere_caesar,key_c_vigenere_caesar)
+    deciphertext_vigenere_caesar = vigenere_caesar_decrypt(ciphertext_vigenere_caesar, key_v_vigenere_caesar, key_c_vigenere_caesar)
     print("Decipher the text with the vigenere key : \"" + key_v_vigenere_caesar + "\"" + " and the caesar key : " + str(key_c_vigenere_caesar) + " : " + deciphertext_vigenere_caesar)
+    print("Open the vigenereAmeliore.txt file and try to find out the two originals keys")
+
     f_ref_v_c = open('vigenereAmeliore.txt', 'r', encoding="utf8")
     content_vigenere_improved = f_ref_v_c.read()
     f_ref_v_c.close()
-    print(vigenere_caesar_break(content_vigenere_improved))
+
+    original_key_v_vigenere_caesar, original_key_c_vigenere_caesar = vigenere_caesar_break(content_vigenere_improved)
+    print("Original vigenere key found : \"" + original_key_v_vigenere_caesar + "\"")
+    print("Original caesar key found : " + str(original_key_c_vigenere_caesar))
+    deciphertext_vigenere_caesar_with_originals_keys = vigenere_caesar_decrypt(content_vigenere_improved, original_key_v_vigenere_caesar, original_key_c_vigenere_caesar)
+    print("Try to decipher the text with the original key found : " + deciphertext_vigenere_caesar_with_originals_keys)
 
 
 if __name__ == "__main__":
